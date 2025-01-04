@@ -1,22 +1,19 @@
 # src/routes/documents.py
-from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
-from sqlalchemy.orm import Session
-from typing import List
+from fastapi import APIRouter, UploadFile, File, Depends, HTTPException
+from langchain_community.document_loaders import PyPDFLoader
+from langchain.text_splitter import RecursiveCharacterTextSplitter
 import tempfile
 import os
 
-from src.services.document_service import DocumentService
-from src.database import get_db
-from src.services.vector_store import VectorStore
+from src.agents.base_agent import BaseAgent
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 
-def get_documents_router(document_service: DocumentService) -> APIRouter:
+def get_documents_router(agent: BaseAgent) -> APIRouter:
     
     @router.post("/upload")
     async def upload_document(
-        file: UploadFile = File(...),
-        db: Session = Depends(get_db)
+        file: UploadFile = File(...)
     ):
         """Upload and process a PDF document."""
         if not file.filename.endswith('.pdf'):
@@ -27,51 +24,35 @@ def get_documents_router(document_service: DocumentService) -> APIRouter:
             with tempfile.NamedTemporaryFile(delete=False) as tmp_file:
                 content = await file.read()
                 tmp_file.write(content)
-                tmp_file.seek(0)
                 
-                # Process document
-                document = await document_service.process_pdf(
-                    tmp_file,
-                    file.filename
+                # Process PDF
+                loader = PyPDFLoader(tmp_file.name)
+                pages = loader.load()
+                
+                # Split text
+                text_splitter = RecursiveCharacterTextSplitter(
+                    chunk_size=1000,
+                    chunk_overlap=200
                 )
+                
+                texts = []
+                metadatas = []
+                for page in pages:
+                    page_texts = text_splitter.split_text(page.page_content)
+                    texts.extend(page_texts)
+                    metadatas.extend([{"source": file.filename, "page": page.metadata.get("page", 0)}] * len(page_texts))
+                
+                # Add to vector store
+                await agent.add_documents(texts, metadatas)
             
             # Clean up
             os.unlink(tmp_file.name)
             
             return {
                 "message": "Document processed successfully",
-                "document_id": document.id
+                "chunks": len(texts)
             }
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
-    
-    @router.get("/search")
-    async def search_documents(
-        query: str,
-        limit: int = 5,
-        db: Session = Depends(get_db)
-    ):
-        """Search through documents."""
-        try:
-            results = await document_service.search_documents(query, limit)
-            return {"results": results}
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=str(e))
-    
-    @router.get("/{document_id}")
-    async def get_document(
-        document_id: int,
-        db: Session = Depends(get_db)
-    ):
-        """Get document details by ID."""
-        document = document_service.get_document(document_id)
-        if not document:
-            raise HTTPException(status_code=404, detail="Document not found")
-        
-        return {
-            "id": document.id,
-            "filename": document.filename,
-            "created_at": document.created_at
-        }
     
     return router

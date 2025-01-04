@@ -1,71 +1,57 @@
 # src/services/vector_store.py
-import faiss
-import numpy as np
-from typing import List, Tuple
-from pathlib import Path
-import pickle
-import os
+from langchain_community.vectorstores.faiss import FAISS
 from langchain_community.embeddings import OpenAIEmbeddings
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+from typing import List, Dict, Optional
+import os
 
-class VectorStore:
-    def __init__(self, dimension: int = 1536):
-        self.dimension = dimension
-        self.index = faiss.IndexFlatL2(dimension)
-        self.embeddings = OpenAIEmbeddings()
-        self.chunk_ids = []
+class VectorStoreService:
+    def __init__(self, api_key: str):
+        self.embeddings = OpenAIEmbeddings(openai_api_key=api_key)
+        self.store_path = "data/vector_store"
+        self.text_splitter = RecursiveCharacterTextSplitter(
+            chunk_size=1000,
+            chunk_overlap=200
+        )
+        self._initialize_store()
+
+    def _initialize_store(self):
+        """Initialize or load existing vector store"""
+        os.makedirs("data", exist_ok=True)
+        if os.path.exists(self.store_path):
+            self.db = FAISS.load_local(self.store_path, self.embeddings)
+        else:
+            self.db = FAISS.from_texts(
+                texts=["initialization"], 
+                embedding=self.embeddings
+            )
+            self.db.save_local(self.store_path)
+
+    async def add_texts(self, texts: List[str], metadatas: Optional[List[Dict]] = None):
+        """Add texts to vector store"""
+        # Split texts if they're too long
+        all_splits = []
+        all_metadatas = []
         
-    def add_texts(self, texts: List[str]) -> List[str]:
-        """Add texts to the vector store."""
-        # Generate embeddings
-        embeddings = self.embeddings.embed_documents(texts)
+        for i, text in enumerate(texts):
+            splits = self.text_splitter.split_text(text)
+            all_splits.extend(splits)
+            
+            if metadatas:
+                all_metadatas.extend([metadatas[i]] * len(splits))
         
-        # Generate IDs for new vectors
-        start_idx = len(self.chunk_ids)
-        new_ids = [f"vec_{i}" for i in range(start_idx, start_idx + len(texts))]
-        
-        # Add to FAISS index
-        self.index.add(np.array(embeddings))
-        self.chunk_ids.extend(new_ids)
-        
-        return new_ids
-    
-    def similarity_search(self, query: str, k: int = 4) -> List[Tuple[str, float]]:
-        """Search for similar texts."""
-        # Generate query embedding
-        query_embedding = self.embeddings.embed_query(query)
-        
-        # Search in FAISS
-        D, I = self.index.search(np.array([query_embedding]), k)
-        
-        # Return IDs and distances
-        results = []
-        for i, (dist, idx) in enumerate(zip(D[0], I[0])):
-            if idx < len(self.chunk_ids):
-                results.append((self.chunk_ids[idx], float(dist)))
-        
-        return results
-    
-    def save(self, directory: str):
-        """Save the vector store to disk."""
-        os.makedirs(directory, exist_ok=True)
-        
-        # Save FAISS index
-        faiss.write_index(self.index, os.path.join(directory, "index.faiss"))
-        
-        # Save chunk IDs
-        with open(os.path.join(directory, "chunk_ids.pkl"), "wb") as f:
-            pickle.dump(self.chunk_ids, f)
-    
-    @classmethod
-    def load(cls, directory: str) -> "VectorStore":
-        """Load vector store from disk."""
-        store = cls()
-        
-        # Load FAISS index
-        store.index = faiss.read_index(os.path.join(directory, "index.faiss"))
-        
-        # Load chunk IDs
-        with open(os.path.join(directory, "chunk_ids.pkl"), "rb") as f:
-            store.chunk_ids = pickle.load(f)
-        
-        return store
+        # Add to vector store
+        self.db.add_texts(
+            texts=all_splits,
+            metadatas=all_metadatas if all_metadatas else None
+        )
+        # Save updated store
+        self.db.save_local(self.store_path)
+
+    async def similarity_search(self, query: str, k: int = 4):
+        """Search for similar texts"""
+        return self.db.similarity_search(query, k=k)
+
+    async def similarity_search_with_score(self, query: str, k: int = 4):
+        """Search for similar texts and return with scores"""
+        return self.db.similarity_search_with_score(query, k=k)
