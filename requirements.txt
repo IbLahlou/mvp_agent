@@ -5,6 +5,7 @@ langchain
 langchain-community
 langgraph
 langsmith
+langchain_openai
 redis
 openai
 pydantic

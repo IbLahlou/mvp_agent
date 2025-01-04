@@ -1,104 +1,129 @@
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import JSONResponse, Response
+# src/main.py
+import uvicorn
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
-from pydantic import BaseModel
-from typing import Optional
+from prometheus_client import Counter, Histogram, CollectorRegistry
+import logging
+import sys
+from pathlib import Path
+
+# Add src to Python path
+src_path = str(Path(__file__).parent.parent)
+sys.path.append(src_path)
+
 from src.cache.redis_manager import RedisManager
 from src.config.settings import Settings
 from src.agents.base_agent import BaseAgent
+from src.services.call_service import CallService
+from src.services.feedback_service import FeedbackService
 
-class Query(BaseModel):
-    query: str
+from src.routes.agent import get_agent_router
+from src.routes.feedback import get_feedback_router
+from src.routes.calls import get_calls_router
+from src.routes.health import get_health_router
 
-class AgentResponse(BaseModel):
-    result: str
-    source: str
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
-# Initialize FastAPI app
-app = FastAPI(title="LangChain Agent API")
+# Create a custom registry for metrics
+metrics_registry = CollectorRegistry()
 
-# Initialize settings and managers
-settings = Settings()
-redis_manager = RedisManager()
-base_agent: Optional[BaseAgent] = None
+# Initialize metrics with custom registry
+REQUEST_COUNT = Counter(
+    'langchain_api_requests_total', 
+    'Total API requests',
+    registry=metrics_registry
+)
+REQUEST_LATENCY = Histogram(
+    'langchain_api_request_duration_seconds', 
+    'API request latency',
+    registry=metrics_registry
+)
 
-# Metrics
-REQUESTS = Counter('http_requests_total', 'Total HTTP requests')
-LATENCY = Histogram('http_request_duration_seconds', 'HTTP request latency')
+def create_app() -> FastAPI:
+    # Initialize FastAPI app
+    app = FastAPI(title="LangChain Agent API")
 
-@app.on_event("startup")
-async def startup_event():
-    """Initialize connections and services on startup."""
-    global base_agent
-    try:
-        await redis_manager.connect()
-        base_agent = BaseAgent()
-    except Exception as e:
-        print(f"Failed to initialize services: {str(e)}")
-        raise
+    # Add CORS middleware
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
-@app.on_event("shutdown")
-async def shutdown_event():
-    """Clean up connections on shutdown."""
-    await redis_manager.disconnect()
+    # Initialize services
+    settings = Settings()
+    redis_manager = RedisManager()
+    base_agent = BaseAgent()
+    call_service = CallService(redis_manager)
+    feedback_service = FeedbackService(redis_manager)
 
-@app.get("/metrics")
-async def metrics():
-    """Endpoint for Prometheus metrics."""
-    return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
-
-@app.get("/")
-async def root():
-    """Health check endpoint."""
-    return {"status": "ok", "message": "LangChain Agent API is running"}
-
-@app.post("/agent/execute", response_model=AgentResponse)
-async def execute_agent(query: Query):
-    """Execute the agent with the given query."""
-    REQUESTS.inc()
-    
-    try:
-        # Check Redis connection
-        if not redis_manager.is_connected():
+    @app.on_event("startup")
+    async def startup_event():
+        """Initialize connections and services on startup"""
+        try:
+            # Connect to Redis
+            logger.info("Connecting to Redis...")
             await redis_manager.connect()
+            logger.info("Redis connection established")
+            
+            # Include routers
+            app.include_router(get_health_router(metrics_registry))
+            app.include_router(get_agent_router(redis_manager, base_agent, call_service))
+            app.include_router(get_feedback_router(feedback_service))
+            app.include_router(get_calls_router(call_service))
+            
+            logger.info("All routes initialized")
+            
+        except Exception as e:
+            logger.error(f"Startup error: {str(e)}")
+            raise
 
-        # Try to get cached response
-        cached_response = await redis_manager.get_cached_response(query.query)
-        if cached_response:
-            return AgentResponse(result=cached_response, source="cache")
+    @app.on_event("shutdown")
+    async def shutdown_event():
+        """Clean up connections on shutdown"""
+        logger.info("Shutting down...")
+        await redis_manager.disconnect()
+        logger.info("Cleanup completed")
 
-        # Execute query using agent
-        if not base_agent:
-            raise HTTPException(
-                status_code=503, 
-                detail="Agent not initialized"
-            )
+    return app
 
-        result = await base_agent.execute(query.query)
-        
-        # Cache the result if valid
-        if result:
-            await redis_manager.cache_response(query.query, result)
-            return AgentResponse(result=result, source="agent")
-        else:
-            raise HTTPException(
-                status_code=500,
-                detail="Agent returned empty result"
-            )
-
-    except ConnectionError as e:
-        raise HTTPException(
-            status_code=503,
-            detail=f"Redis connection error: {str(e)}"
-        )
-    except ValueError as e:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Invalid input: {str(e)}"
+def start_server(host="0.0.0.0", port=8000, reload=True):
+    """Start the Uvicorn server"""
+    try:
+        logger.info(f"Starting server on {host}:{port}")
+        uvicorn.run(
+            "src.main:app",
+            host=host,
+            port=port,
+            reload=reload,
+            log_level="info"
         )
     except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Unexpected error: {str(e)}"
-        )
+        logger.error(f"Server startup failed: {str(e)}")
+        sys.exit(1)
+
+# Create the FastAPI application instance
+app = create_app()
+
+if __name__ == "__main__":
+    import argparse
+    
+    parser = argparse.ArgumentParser(description="LangChain Agent API Server")
+    parser.add_argument("--host", default="0.0.0.0", help="Host to bind the server to")
+    parser.add_argument("--port", type=int, default=8000, help="Port to bind the server to")
+    parser.add_argument("--no-reload", action="store_true", help="Disable auto-reload")
+    
+    args = parser.parse_args()
+    
+    start_server(
+        host=args.host,
+        port=args.port,
+        reload=not args.no_reload
+    )
