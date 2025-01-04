@@ -1,71 +1,74 @@
 # src/agents/base_agent.py
-from langchain import agents
-from langchain.agents import Tool, AgentExecutor
-from langchain.agents.openai_functions_agent.base import OpenAIFunctionsAgent
+from langchain.agents import Tool, AgentExecutor, create_openai_functions_agent
 from langchain_openai import ChatOpenAI
-from langchain_openai import OpenAIEmbeddings  # Updated import
-from langchain.prompts import ChatPromptTemplate, HumanMessagePromptTemplate, MessagesPlaceholder
+from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain.schema.messages import SystemMessage
+from typing import List
+from src.config.settings import Settings
 from langchain_community.vectorstores.faiss import FAISS
+from langchain_openai import OpenAIEmbeddings
 import os
 
 class BaseAgent:
     def __init__(self):
-        """Initialize the BaseAgent with LLM, tools, and agent executor."""
+        """Initialize the BaseAgent with LLM, tools, and RAG capabilities."""
         self.settings = Settings()
-        try:
-            self.llm = ChatOpenAI(
-                api_key=self.settings.OPENAI_API_KEY,
-                model="gpt-4",
-                temperature=self.settings.TEMPERATURE
-            )
-            self.embeddings = OpenAIEmbeddings(
-                openai_api_key=self.settings.OPENAI_API_KEY
-            )
-            self.vector_store = self._initialize_vector_store()
-            print("LLM and Vector Store initialized successfully")
-        except Exception as e:
-            print(f"Error initializing components: {str(e)}")
-            raise
-
+        self.llm = ChatOpenAI(
+            api_key=self.settings.OPENAI_API_KEY,
+            model="gpt-4",
+            temperature=self.settings.TEMPERATURE
+        )
+        
+        # Initialize embeddings and vector store
+        self.embeddings = OpenAIEmbeddings(api_key=self.settings.OPENAI_API_KEY)
+        self._initialize_vector_store()
+        
         self.tools = self._get_tools()
         self.agent_executor = self._create_agent()
 
     def _initialize_vector_store(self):
-        """Initialize or load FAISS vector store"""
-        vector_store_path = "data/vector_store"
+        """Initialize or load vector store"""
+        store_path = "data/vector_store"
         os.makedirs("data", exist_ok=True)
         
-        if os.path.exists(vector_store_path):
+        if os.path.exists(store_path):
             try:
-                return FAISS.load_local(
-                    vector_store_path, 
+                self.vector_store = FAISS.load_local(
+                    store_path, 
                     self.embeddings,
-                    allow_dangerous_deserialization=True  # Only for trusted local files
+                    allow_dangerous_deserialization=True
                 )
-            except Exception:
-                # If loading fails, create new store
-                return self._create_new_vector_store(vector_store_path)
+            except Exception as e:
+                print(f"Error loading vector store: {e}")
+                self.vector_store = self._create_new_vector_store(store_path)
         else:
-            return self._create_new_vector_store(vector_store_path)
+            self.vector_store = self._create_new_vector_store(store_path)
 
-    def _create_new_vector_store(self, path):
+    def _create_new_vector_store(self, path: str) -> FAISS:
         """Create a new FAISS vector store"""
         vector_store = FAISS.from_texts(
-            texts=["Initial document"],
-            embedding=self.embeddings,
-            metadatas=[{"source": "initialization"}]
+            texts=["initialization"],
+            embedding=self.embeddings
         )
         vector_store.save_local(path)
         return vector_store
 
-    def _get_tools(self):
+    def _search_documents(self, query: str) -> str:
+        """Search through documents using vector store"""
+        try:
+            results = self.vector_store.similarity_search(query, k=3)
+            return "\n\n".join([f"Document {i+1}:\n{doc.page_content}" 
+                              for i, doc in enumerate(results)])
+        except Exception as e:
+            return f"Error searching documents: {str(e)}"
+
+    def _get_tools(self) -> List[Tool]:
         """Return a list of tools available to the agent."""
         return [
             Tool(
                 name="search_documents",
                 func=self._search_documents,
-                description="Search through stored documents for relevant information"
+                description="Search through uploaded documents for relevant information"
             ),
             Tool(
                 name="calculator",
@@ -74,23 +77,20 @@ class BaseAgent:
             )
         ]
 
-    def _search_documents(self, query: str):
-        """Search through documents using vector store"""
-        docs = self.vector_store.similarity_search(query)
-        return "\n".join([doc.page_content for doc in docs])
-
-    def _create_agent(self):
-        """Create and return an agent executor with the specified tools and prompt."""
+    def _create_agent(self) -> AgentExecutor:
+        """Create and return an agent executor."""
         prompt = ChatPromptTemplate.from_messages([
             SystemMessage(content=(
                 "You are a helpful assistant skilled at using tools to solve problems. "
-                "You can search through documents and perform calculations."
+                "You can search through documents and perform calculations. "
+                "When using information from documents, always cite the source."
             )),
-            HumanMessagePromptTemplate.from_template("{input}"),
-            MessagesPlaceholder(variable_name="agent_scratchpad")
+            MessagesPlaceholder(variable_name="chat_history"),
+            MessagesPlaceholder(variable_name="agent_scratchpad"),
         ])
 
-        agent = OpenAIFunctionsAgent(
+        # Using the new recommended way to create an OpenAI Functions agent
+        agent = create_openai_functions_agent(
             llm=self.llm,
             tools=self.tools,
             prompt=prompt
@@ -99,17 +99,18 @@ class BaseAgent:
         return AgentExecutor(
             agent=agent,
             tools=self.tools,
-            verbose=True
+            verbose=True,
+            max_iterations=3
         )
 
-    async def execute(self, query: str):
+    async def execute(self, query: str, chat_history: List = None) -> str:
         """Execute the agent with the given query."""
         try:
             result = await self.agent_executor.arun(
-                input=query
+                input=query,
+                chat_history=chat_history or []
             )
-            print(f"Execution result: {result}")
             return result
         except Exception as e:
-            print(f"Error in execute: {str(e)}")
+            print(f"Error in agent execution: {str(e)}")
             raise

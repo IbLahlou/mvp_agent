@@ -1,0 +1,12 @@
+README.md
+setup.py
+lang_stack_proj.egg-info/PKG-INFO
+lang_stack_proj.egg-info/SOURCES.txt
+lang_stack_proj.egg-info/dependency_links.txt
+lang_stack_proj.egg-info/requires.txt
+lang_stack_proj.egg-info/top_level.txt
+src/__init__.py
+src/main.py
+src/config/__init__.py
+src/config/settings.py
+tests/__init__.py

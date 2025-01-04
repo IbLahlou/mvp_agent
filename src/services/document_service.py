@@ -1,91 +1,90 @@
 # src/services/document_service.py
-from typing import List, BinaryIO
-import hashlib
-from sqlalchemy.orm import Session
-from langchain_community.document_loaders import PyPDFLoader
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+from datetime import datetime
+import json
+from typing import List, Dict, Optional
+from pydantic import BaseModel
+from src.cache.redis_manager import RedisManager
 
-from src.models.document import Document, DocumentChunk
-from src.services.vector_store import VectorStore
+class DocumentMetadata(BaseModel):
+    filename: str
+    timestamp: str
+    status: str
+    chunk_count: Optional[int] = None
+    embedding_model: Optional[str] = None
+    error_message: Optional[str] = None
 
 class DocumentService:
-    def __init__(self, db: Session, vector_store: VectorStore):
-        self.db = db
-        self.vector_store = vector_store
-        self.text_splitter = RecursiveCharacterTextSplitter(
-            chunk_size=1000,
-            chunk_overlap=200
-        )
-    
-    def _compute_hash(self, file: BinaryIO) -> str:
-        """Compute SHA-256 hash of file content."""
-        sha256_hash = hashlib.sha256()
-        for byte_block in iter(lambda: file.read(4096), b""):
-            sha256_hash.update(byte_block)
-        file.seek(0)
-        return sha256_hash.hexdigest()
-    
-    async def process_pdf(self, file: BinaryIO, filename: str) -> Document:
-        """Process a PDF file and store its contents."""
-        # Compute file hash
-        content_hash = self._compute_hash(file)
+    def __init__(self, redis_manager: RedisManager):
+        self.redis_manager = redis_manager
+        self.docs_key = "embedded_documents"
         
-        # Check if document already exists
-        existing_doc = self.db.query(Document).filter_by(content_hash=content_hash).first()
-        if existing_doc:
-            return existing_doc
+    async def log_document_start(self, filename: str) -> str:
+        """Log the start of document processing"""
+        doc_id = f"doc_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}_{filename}"
         
-        # Create new document
-        document = Document(
+        metadata = DocumentMetadata(
             filename=filename,
-            content_hash=content_hash
+            timestamp=datetime.utcnow().isoformat(),
+            status="processing",
+            chunk_count=0,
+            embedding_model=None
         )
-        self.db.add(document)
         
-        # Process PDF content
-        loader = PyPDFLoader(file)
-        pages = loader.load()
+        await self.redis_manager._redis.hset(
+            self.docs_key,
+            doc_id,
+            metadata.model_dump_json()
+        )
         
-        # Split into chunks
-        chunks = []
-        for page in pages:
-            page_chunks = self.text_splitter.split_text(page.page_content)
-            chunks.extend(page_chunks)
-        
-        # Add to vector store and create chunk records
-        chunk_ids = self.vector_store.add_texts(chunks)
-        
-        for idx, (chunk_text, chunk_id) in enumerate(zip(chunks, chunk_ids)):
-            chunk = DocumentChunk(
-                document=document,
-                content=chunk_text,
-                chunk_index=idx,
-                embedding_id=chunk_id
+        return doc_id
+    
+    async def update_document_status(
+        self, 
+        doc_id: str, 
+        status: str,
+        chunk_count: Optional[int] = None,
+        embedding_model: Optional[str] = None,
+        error_message: Optional[str] = None
+    ):
+        """Update document processing status"""
+        current_data = await self.redis_manager._redis.hget(self.docs_key, doc_id)
+        if current_data:
+            metadata = DocumentMetadata.model_validate_json(current_data)
+            metadata.status = status
+            if chunk_count is not None:
+                metadata.chunk_count = chunk_count
+            if embedding_model is not None:
+                metadata.embedding_model = embedding_model
+            if error_message is not None:
+                metadata.error_message = error_message
+                
+            await self.redis_manager._redis.hset(
+                self.docs_key,
+                doc_id,
+                metadata.model_dump_json()
             )
-            self.db.add(chunk)
-        
-        self.db.commit()
-        return document
     
-    async def search_documents(self, query: str, limit: int = 5) -> List[dict]:
-        """Search for relevant document chunks."""
-        # Get similar chunks from vector store
-        similar_chunks = self.vector_store.similarity_search(query, k=limit)
-        
-        results = []
-        for chunk_id, score in similar_chunks:
-            # Get chunk from database
-            chunk = self.db.query(DocumentChunk).filter_by(embedding_id=chunk_id).first()
-            if chunk:
-                results.append({
-                    "document_id": chunk.document_id,
-                    "filename": chunk.document.filename,
-                    "content": chunk.content,
-                    "score": score
-                })
-        
-        return results
+    async def get_document_status(self, doc_id: str) -> Optional[DocumentMetadata]:
+        """Get status of a specific document"""
+        data = await self.redis_manager._redis.hget(self.docs_key, doc_id)
+        if data:
+            return DocumentMetadata.model_validate_json(data)
+        return None
     
-    def get_document(self, document_id: int) -> Document:
-        """Get document by ID."""
-        return self.db.query(Document).filter_by(id=document_id).first()
+    async def get_all_documents(self) -> List[Dict]:
+        """Get status of all documents"""
+        all_docs = await self.redis_manager._redis.hgetall(self.docs_key)
+        return [
+            {
+                "id": doc_id,
+                **json.loads(metadata)
+            }
+            for doc_id, metadata in all_docs.items()
+        ]
+    
+    async def delete_document(self, doc_id: str):
+        """Delete document metadata from Redis"""
+        if not self.redis_manager.is_connected():
+            await self.redis_manager.connect()
+            
+        await self.redis_manager._redis.hdel(self.docs_key, doc_id)

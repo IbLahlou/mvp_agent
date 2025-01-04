@@ -1,0 +1,11 @@
+Metadata-Version: 2.1
+Name: lang_stack_proj
+Version: 0.1.0
+Requires-Dist: fastapi
+Requires-Dist: uvicorn
+Requires-Dist: python-dotenv
+Requires-Dist: langchain
+Requires-Dist: redis
+Requires-Dist: openai
+Requires-Dist: pydantic
+Requires-Dist: pydantic-settings

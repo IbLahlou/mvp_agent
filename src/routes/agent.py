@@ -1,62 +1,69 @@
 # src/routes/agent.py
 from fastapi import APIRouter, HTTPException, BackgroundTasks
 from pydantic import BaseModel
-from src.cache.redis_manager import RedisManager
+from typing import Optional
 from src.agents.base_agent import BaseAgent
-from src.services.call_service import CallService
 
-router = APIRouter(prefix="/agent", tags=["agent"])
+router = APIRouter(
+    prefix="/agent",
+    tags=["agent"]
+)
 
 class Query(BaseModel):
     query: str
+    context: Optional[str] = None
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "query": "What is the main topic of the document?",
+                "context": "Optional additional context"
+            }
+        }
 
 class AgentResponse(BaseModel):
-    result: str
-    source: str
+    response: str
     query_id: str
 
-def get_agent_router(
-    redis_manager: RedisManager,
-    base_agent: BaseAgent,
-    call_service: CallService
-) -> APIRouter:
-    
-    @router.post("/execute")
-    async def execute_agent(query: Query, background_tasks: BackgroundTasks):
-        try:
-            # Check cache first
-            cached_response = await redis_manager.get_cached_response(query.query)
-            if cached_response:
-                query_id = f"cached_{str(hash(query.query))}"
-                background_tasks.add_task(
-                    call_service.add_call,
-                    query.query,
-                    cached_response
-                )
-                return AgentResponse(
-                    result=cached_response,
-                    source="cache",
-                    query_id=query_id
-                )
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "response": "The main topic is artificial intelligence.",
+                "query_id": "query_123abc"
+            }
+        }
 
-            # Execute with agent if not cached
-            result = await base_agent.execute(query.query)
-            if result:
-                query_id = f"agent_{str(hash(query.query))}"
-                await redis_manager.cache_response(query.query, result)
-                background_tasks.add_task(
-                    call_service.add_call,
-                    query.query,
-                    result
-                )
-                return AgentResponse(
-                    result=result,
-                    source="agent",
-                    query_id=query_id
-                )
-            raise HTTPException(status_code=500, detail="Empty result from agent")
+def get_agent_router(agent: BaseAgent) -> APIRouter:
+    """
+    Create and return an APIRouter for agent endpoints
+    Args:
+        agent: The BaseAgent instance to use for processing queries
+    """
+    
+    @router.post(
+        "/execute",
+        response_model=AgentResponse,
+        summary="Execute Agent Query",
+        description="Execute a query using the LangChain agent"
+    )
+    async def execute_agent(
+        query: Query,
+        background_tasks: BackgroundTasks
+    ):
+        """Execute a query using the agent"""
+        try:
+            result = await agent.execute(query.query)
+            query_id = f"agent_{hash(query.query)}"
+            
+            return AgentResponse(
+                response=result,
+                query_id=query_id
+            )
             
         except Exception as e:
-            raise HTTPException(status_code=500, detail=str(e))
-
+            raise HTTPException(
+                status_code=500,
+                detail=f"Error executing agent query: {str(e)}"
+            )
+    
     return router
