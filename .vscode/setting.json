@@ -1,0 +1,49 @@
+{
+    "python.defaultInterpreterPath": "${workspaceFolder}/venv2/bin/python",
+    "python.analysis.extraPaths": [
+        "${workspaceFolder}/src"
+    ],
+    "python.linting.enabled": true,
+    "python.linting.pylintEnabled": true,
+    "python.linting.pylintPath": "${workspaceFolder}/venv2/bin/pylint",
+    "python.linting.pylintArgs": [
+        "--rcfile=${workspaceFolder}/.pylintrc",
+        "--disable=C0111",  
+        "--max-line-length=120",
+        "--ignored-modules=pydantic",
+        "--extension-pkg-whitelist=pydantic"
+    ],
+    "python.analysis.typeCheckingMode": "basic",
+    "python.formatting.provider": "black",
+    "python.formatting.blackPath": "${workspaceFolder}/venv2/bin/black",
+    "python.formatting.blackArgs": [
+        "--line-length=120"
+    ],
+    "[python]": {
+        "editor.formatOnSave": true,
+        "editor.codeActionsOnSave": {
+            "source.organizeImports": true
+        },
+        "editor.rulers": [
+            120
+        ]
+    },
+    "files.exclude": {
+        "**/.git": true,
+        "**/.pyc": true,
+        "**/__pycache__": true,
+        "**/.pytest_cache": true,
+        "**/venv2": false
+    },
+    "files.watcherExclude": {
+        "**/.git/objects/**": true,
+        "**/.git/subtree-cache/**": true,
+        "**/venv2/**": true,
+        "**/__pycache__/**": true
+    },
+    "python.analysis.diagnosticMode": "workspace",
+    "python.analysis.autoSearchPaths": true,
+    "python.analysis.indexing": true,
+    "python.analysis.autoImportCompletions": true,
+    "python.languageServer": "Pylance"
+}

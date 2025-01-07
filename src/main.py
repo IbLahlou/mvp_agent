@@ -8,7 +8,11 @@ from src.config.settings import Settings
 from src.agents.base_agent import BaseAgent
 from src.cache.redis_manager import RedisManager
 from src.services.document_service import DocumentService
+from src.services.pdf_processor import PDFProcessor
+from src.services.prompt_processor import PromptProcessor  # Add this import
 from src.routes import agent, calls, documents, feedback, metrics
+from src.routes.agent_chat import get_agent_chat_router
+from src.routes.prompt_processing import get_prompt_processing_router  # Add this import
 from src.routes.metrics import track_request, track_latency
 
 @asynccontextmanager
@@ -29,9 +33,21 @@ async def lifespan(app: FastAPI):
     document_service = DocumentService(app.state.redis)
     app.state.document_service = document_service
     
+    # Initialize PDF Processor
+    pdf_processor = PDFProcessor(document_service, settings)
+    app.state.pdf_processor = pdf_processor
+    
+    # Initialize Prompt Processor
+    prompt_processor = PromptProcessor(
+        openai_api_key=settings.OPENAI_API_KEY,
+        model_name=settings.MODEL_NAME,
+        temperature=settings.TEMPERATURE
+    )
+    app.state.prompt_processor = prompt_processor
+    
     # Initialize routers with dependencies
-    app.include_router(agent.router)  # Changed from get_agent_router
-    app.include_router(calls.router)  # Assuming similar pattern for other routers
+    app.include_router(agent.router)
+    app.include_router(calls.router)
     app.include_router(
         documents.get_documents_router(
             document_service=app.state.document_service,
@@ -40,6 +56,12 @@ async def lifespan(app: FastAPI):
     )
     app.include_router(feedback.router)
     app.include_router(metrics.router)
+    app.include_router(get_agent_chat_router())
+    
+    # Add the new prompt processing router
+    app.include_router(
+        get_prompt_processing_router(settings=app.state.settings)
+    )
     
     yield
     
