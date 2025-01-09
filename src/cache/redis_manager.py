@@ -20,6 +20,15 @@ class RedisManager:
             await self._redis.ping()
             print("Redis connection established")
     
+    def is_connected(self) -> bool:
+        """Check if Redis is connected"""
+        return self._redis is not None
+    
+    async def ensure_connected(self):
+        """Ensure Redis connection exists"""
+        if not self.is_connected():
+            await self.connect()
+    
     async def disconnect(self):
         """Close Redis connection"""
         if self._redis:

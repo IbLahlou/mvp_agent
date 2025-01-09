@@ -84,7 +84,5 @@ class DocumentService:
     
     async def delete_document(self, doc_id: str):
         """Delete document metadata from Redis"""
-        if not self.redis_manager.is_connected():
-            await self.redis_manager.connect()
-            
+        await self.redis_manager.ensure_connected()
         await self.redis_manager._redis.hdel(self.docs_key, doc_id)
