@@ -1,0 +1,36 @@
+Service Log 20250110_190227
+        
+Request:
+- Endpoint: http://0.0.0.0:8000/agent/consulting
+- Method: POST
+- Time: 2025-01-10 19:02:27
+
+Details:
+{
+  "endpoint": "http://0.0.0.0:8000/agent/consulting",
+  "method": "POST",
+  "query_params": {},
+  "path_params": {},
+  "body": {
+    "company_name": "LRConuslting",
+    "business_type": "B2C",
+    "framework": "Situation, Task, Action, Result",
+    "word_limit": 150,
+    "demand": "What's an ERP ?"
+  }
+}
+
+Response:
+{
+  "status_code": 200,
+  "headers": {
+    "content-length": "945",
+    "content-type": "application/json",
+    "access-control-allow-origin": "*",
+    "access-control-allow-credentials": "true"
+  }
+}
+
+Additional Info:
+- Duration: 9209.78ms
+- Status: success

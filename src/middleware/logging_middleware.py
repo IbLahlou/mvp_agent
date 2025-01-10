@@ -32,17 +32,18 @@ class LoggingMiddleware(BaseHTTPMiddleware):
         response = await call_next(request)
         duration = round((time.time() - start_time) * 1000, 2)
 
-        # Log the interaction
-        await self.logger.log_interaction({
-            'endpoint': str(request.url),
-            'method': request.method,
-            'request_data': request_data,
-            'response': {
-                'status_code': response.status_code,
-                'headers': dict(response.headers)
-            },
-            'duration': duration,
-            'status': 'success' if response.status_code < 400 else 'error'
-        })
+        # Log the interaction only for the /agent endpoint
+        if "/agent" in str(request.url):  # Restrict to /agent endpoint
+            await self.logger.log_interaction({
+                'endpoint': str(request.url),
+                'method': request.method,
+                'request_data': request_data,
+                'response': {
+                    'status_code': response.status_code,
+                    'headers': dict(response.headers)
+                },
+                'duration': duration,
+                'status': 'success' if response.status_code < 400 else 'error'
+            })
 
         return response

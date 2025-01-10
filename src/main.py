@@ -120,7 +120,7 @@ async def metrics_middleware(request: Request, call_next):
     return response
 
 # Register routes
-app.include_router(documents.router, prefix="/doc", tags=["documents"])
+app.include_router(documents.router,  tags=["documents"])
 app.include_router(agent.router, prefix="/agent", tags=["agent"])
 app.include_router(metrics.router) 
 app.include_router(feedback.router) 
