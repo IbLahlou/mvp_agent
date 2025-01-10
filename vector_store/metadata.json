@@ -1,0 +1,15 @@
+{
+  "last_updated": "20250110_184731",
+  "documents": {
+    "core_info": {
+      "timestamp": "20250110_184731",
+      "path": "vector_store/doc_core_info_20250110_184731",
+      "metadata": {
+        "type": "general",
+        "doc_id": "core_info",
+        "timestamp": "20250110_184731"
+      }
+    }
+  },
+  "global_store": null
+}

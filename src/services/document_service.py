@@ -3,9 +3,9 @@ from datetime import datetime
 import json
 from typing import List, Dict, Optional
 from pydantic import BaseModel
-from src.cache.redis_manager import RedisManager
 
 class DocumentMetadata(BaseModel):
+    doc_id: str  # Added doc_id field
     filename: str
     timestamp: str
     status: str
@@ -14,7 +14,7 @@ class DocumentMetadata(BaseModel):
     error_message: Optional[str] = None
 
 class DocumentService:
-    def __init__(self, redis_manager: RedisManager):
+    def __init__(self, redis_manager):
         self.redis_manager = redis_manager
         self.docs_key = "embedded_documents"
         
@@ -23,6 +23,7 @@ class DocumentService:
         doc_id = f"doc_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}_{filename}"
         
         metadata = DocumentMetadata(
+            doc_id=doc_id,  # Include doc_id in metadata
             filename=filename,
             timestamp=datetime.utcnow().isoformat(),
             status="processing",
@@ -49,7 +50,10 @@ class DocumentService:
         """Update document processing status"""
         current_data = await self.redis_manager._redis.hget(self.docs_key, doc_id)
         if current_data:
-            metadata = DocumentMetadata.model_validate_json(current_data)
+            metadata_dict = json.loads(current_data)
+            metadata_dict["doc_id"] = doc_id  # Ensure doc_id is present
+            metadata = DocumentMetadata(**metadata_dict)
+            
             metadata.status = status
             if chunk_count is not None:
                 metadata.chunk_count = chunk_count
@@ -68,19 +72,22 @@ class DocumentService:
         """Get status of a specific document"""
         data = await self.redis_manager._redis.hget(self.docs_key, doc_id)
         if data:
-            return DocumentMetadata.model_validate_json(data)
+            metadata_dict = json.loads(data)
+            metadata_dict["doc_id"] = doc_id  # Ensure doc_id is present
+            return DocumentMetadata(**metadata_dict)
         return None
     
     async def get_all_documents(self) -> List[Dict]:
         """Get status of all documents"""
         all_docs = await self.redis_manager._redis.hgetall(self.docs_key)
-        return [
-            {
-                "id": doc_id,
-                **json.loads(metadata)
-            }
-            for doc_id, metadata in all_docs.items()
-        ]
+        documents = []
+        
+        for doc_id, metadata in all_docs.items():
+            metadata_dict = json.loads(metadata)
+            metadata_dict["doc_id"] = doc_id  # Ensure doc_id is present
+            documents.append(metadata_dict)
+            
+        return documents
     
     async def delete_document(self, doc_id: str):
         """Delete document metadata from Redis"""
