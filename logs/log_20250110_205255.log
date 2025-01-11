@@ -1,0 +1,29 @@
+Service Log 20250110_205255
+        
+Request:
+- Endpoint: http://0.0.0.0:8000/agent/presentation
+- Method: POST
+- Time: 2025-01-10 20:52:55
+
+Details:
+{
+  "endpoint": "http://0.0.0.0:8000/agent/presentation",
+  "method": "POST",
+  "query_params": {},
+  "path_params": {}
+}
+
+Response:
+{
+  "status_code": 422,
+  "headers": {
+    "content-length": "142",
+    "content-type": "application/json",
+    "access-control-allow-origin": "*",
+    "access-control-allow-credentials": "true"
+  }
+}
+
+Additional Info:
+- Duration: 0.62ms
+- Status: error

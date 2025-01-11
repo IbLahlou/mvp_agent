@@ -1,13 +1,13 @@
 {
-  "last_updated": "20250110_190618",
+  "last_updated": "20250111_094102",
   "documents": {
     "core_info": {
-      "timestamp": "20250110_190618",
-      "path": "vector_store/doc_core_info_20250110_190618",
+      "timestamp": "20250111_094102",
+      "path": "vector_store/doc_core_info_20250111_094102",
       "metadata": {
         "type": "general",
         "doc_id": "core_info",
-        "timestamp": "20250110_190618"
+        "timestamp": "20250111_094102"
       }
     }
   },

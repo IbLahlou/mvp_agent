@@ -1,0 +1,38 @@
+Service Log 20250110_202021
+        
+Request:
+- Endpoint: http://0.0.0.0:8000/agent/presentation
+- Method: POST
+- Time: 2025-01-10 20:20:21
+
+Details:
+{
+  "endpoint": "http://0.0.0.0:8000/agent/presentation",
+  "method": "POST",
+  "query_params": {},
+  "path_params": {},
+  "body": {
+    "company_name": "Quality Manufacturing Ltd.",
+    "business_type": "manufacturing",
+    "framework": "AIDA",
+    "word_limit": 200,
+    "lang": "eng",
+    "person_name": "Sarah Johnson",
+    "demand": "How can we implement ISO 9001 effectively in our manufacturing processes?"
+  }
+}
+
+Response:
+{
+  "status_code": 422,
+  "headers": {
+    "content-length": "587",
+    "content-type": "application/json",
+    "access-control-allow-origin": "*",
+    "access-control-allow-credentials": "true"
+  }
+}
+
+Additional Info:
+- Duration: 1.74ms
+- Status: error

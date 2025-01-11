@@ -1,0 +1,39 @@
+Service Log 20250110_204250
+        
+Request:
+- Endpoint: http://0.0.0.0:8000/agent/presentation
+- Method: POST
+- Time: 2025-01-10 20:42:50
+
+Details:
+{
+  "endpoint": "http://0.0.0.0:8000/agent/presentation",
+  "method": "POST",
+  "query_params": {},
+  "path_params": {},
+  "body": {
+    "company_name": "CUNLIST Manufacturing Ltd.",
+    "business_type": "B2C",
+    "framework": "STAR",
+    "word_limit": 150,
+    "lang": "eng",
+    "person_name": "Valued Customer",
+    "topic": "AI-Powered Solutions for Manufacturing",
+    "domain_type": "tech"
+  }
+}
+
+Response:
+{
+  "status_code": 200,
+  "headers": {
+    "content-length": "1444",
+    "content-type": "application/json",
+    "access-control-allow-origin": "*",
+    "access-control-allow-credentials": "true"
+  }
+}
+
+Additional Info:
+- Duration: 9423.61ms
+- Status: success

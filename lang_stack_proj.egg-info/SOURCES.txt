@@ -7,6 +7,16 @@ lang_stack_proj.egg-info/requires.txt
 lang_stack_proj.egg-info/top_level.txt
 src/__init__.py
 src/main.py
+src/agents/__init__.py
+src/agents/base_agent.py
+src/cache/__init__.py
+src/cache/redis_manager.py
 src/config/__init__.py
 src/config/settings.py
-tests/__init__.py
+src/services/__init__.py
+src/services/document_service.py
+src/services/pdf_processor.py
+src/services/prompt_processor.py
+src/services/request_logger.py
+src/services/service_recorder.py
+src/services/vector_store_manager.py

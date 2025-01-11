@@ -1,0 +1,39 @@
+Service Log 20250110_201825
+        
+Request:
+- Endpoint: http://0.0.0.0:8000/agent/consulting
+- Method: POST
+- Time: 2025-01-10 20:18:25
+
+Details:
+{
+  "endpoint": "http://0.0.0.0:8000/agent/consulting",
+  "method": "POST",
+  "query_params": {},
+  "path_params": {},
+  "body": {
+    "company_name": "Quality Manufacturing Ltd.",
+    "business_type": "manufacturing",
+    "framework": "STAR",
+    "word_limit": 250,
+    "lang": "eng",
+    "person_name": "Sarah Johnson",
+    "topic": "Implementing ISO 9001 for Quality Management",
+    "domain_type": "manufacturing"
+  }
+}
+
+Response:
+{
+  "status_code": 422,
+  "headers": {
+    "content-length": "588",
+    "content-type": "application/json",
+    "access-control-allow-origin": "*",
+    "access-control-allow-credentials": "true"
+  }
+}
+
+Additional Info:
+- Duration: 1.61ms
+- Status: error

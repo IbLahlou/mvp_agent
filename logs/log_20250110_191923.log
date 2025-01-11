@@ -1,0 +1,36 @@
+Service Log 20250110_191923
+        
+Request:
+- Endpoint: http://0.0.0.0:8000/agent/presentation
+- Method: POST
+- Time: 2025-01-10 19:19:23
+
+Details:
+{
+  "endpoint": "http://0.0.0.0:8000/agent/presentation",
+  "method": "POST",
+  "query_params": {},
+  "path_params": {},
+  "body": {
+    "company_name": "LRConuslting",
+    "business_type": "B2C",
+    "framework": "Situation, Task, Action, Result",
+    "word_limit": 150,
+    "topic": "What did i say in my last responses ?"
+  }
+}
+
+Response:
+{
+  "status_code": 200,
+  "headers": {
+    "content-length": "1956",
+    "content-type": "application/json",
+    "access-control-allow-origin": "*",
+    "access-control-allow-credentials": "true"
+  }
+}
+
+Additional Info:
+- Duration: 16441.98ms
+- Status: success
