@@ -1,0 +1,27 @@
+Service Log 20250111_110920
+        
+Request:
+- Endpoint: http://0.0.0.0:8000/agent/business-types
+- Method: GET
+- Time: 2025-01-11 11:09:20
+
+Details:
+{
+  "endpoint": "http://0.0.0.0:8000/agent/business-types",
+  "method": "GET",
+  "query_params": {},
+  "path_params": {}
+}
+
+Response:
+{
+  "status_code": 200,
+  "headers": {
+    "content-length": "64",
+    "content-type": "application/json"
+  }
+}
+
+Additional Info:
+- Duration: 0.28ms
+- Status: success

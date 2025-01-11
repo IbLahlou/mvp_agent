@@ -1,0 +1,38 @@
+Service Log 20250111_115444
+        
+Request:
+- Endpoint: http://0.0.0.0:8000/agent/consulting
+- Method: POST
+- Time: 2025-01-11 11:54:44
+
+Details:
+{
+  "endpoint": "http://0.0.0.0:8000/agent/consulting",
+  "method": "POST",
+  "query_params": {},
+  "path_params": {},
+  "body": {
+    "company_name": "DICE",
+    "business_type": "B2C",
+    "framework": "STAR",
+    "word_limit": 150,
+    "lang": "ar",
+    "person_name": "Ibrahim LAHLOU",
+    "demand": "How iso 9001 Works ?"
+  }
+}
+
+Response:
+{
+  "status_code": 200,
+  "headers": {
+    "content-length": "1282",
+    "content-type": "application/json",
+    "access-control-allow-origin": "*",
+    "access-control-allow-credentials": "true"
+  }
+}
+
+Additional Info:
+- Duration: 11038.07ms
+- Status: success

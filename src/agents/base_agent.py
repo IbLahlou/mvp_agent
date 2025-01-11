@@ -3,7 +3,7 @@ from langchain.agents import Tool, AgentExecutor, create_openai_functions_agent
 from langchain_openai import ChatOpenAI
 from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain.schema.messages import SystemMessage
-from typing import List
+from typing import List, Dict, Any
 from src.config.settings import Settings
 from langchain_community.vectorstores.faiss import FAISS
 from langchain_openai import OpenAIEmbeddings
@@ -25,6 +25,8 @@ class BaseAgent:
         
         self.tools = self._get_tools()
         self.agent_executor = self._create_agent()
+        # Add this line to your __init__ method after initializing other components
+        self.context: Dict[str, Any] = {}
 
     def _initialize_vector_store(self):
         """Initialize or load vector store"""
@@ -103,14 +105,54 @@ class BaseAgent:
             max_iterations=3
         )
 
-    async def execute(self, query: str, chat_history: List = None) -> str:
-        """Execute the agent with the given query."""
+    async def execute(self, query: str, chat_history: List[Dict[str, Any]] = None) -> str:
+        """
+        Execute the agent with the given query, incorporating context.
+        Args:
+            query: The user's query
+            chat_history: Optional chat history list
+        Returns:
+            str: The agent's response
+        """
         try:
-            result = await self.agent_executor.arun(
-                input=query,
-                chat_history=chat_history or []
-            )
+            # Include context in the execution
+            input_context = {
+                "input": query,
+                "chat_history": chat_history or [],
+                "context": self.get_context()
+            }
+            
+            result = await self.agent_executor.arun(**input_context)
             return result
         except Exception as e:
             print(f"Error in agent execution: {str(e)}")
             raise
+
+    def get_context(self) -> Dict[str, Any]:
+        """
+        Retrieve the current context for the agent.
+        Returns:
+            Dict containing the current context including any business context,
+            framework settings, and conversation history.
+        """
+        return self.context
+
+    def set_context(self, context: Dict[str, Any]) -> None:
+        """
+        Set or update the agent's context.
+        Args:
+            context: Dictionary containing context information
+        """
+        self.context.update(context)
+
+    def clear_context(self) -> None:
+        """Clear the agent's current context."""
+        self.context = {}
+
+    def get_business_context(self) -> List[str]:
+        """
+        Get business-specific context for prompt engineering.
+        Returns:
+            List of context strings relevant to the current business scenario.
+        """
+        return self.context.get('business_context', [])

@@ -1,0 +1,27 @@
+Service Log 20250111_110938
+        
+Request:
+- Endpoint: http://0.0.0.0:8000/agent/frameworks
+- Method: GET
+- Time: 2025-01-11 11:09:38
+
+Details:
+{
+  "endpoint": "http://0.0.0.0:8000/agent/frameworks",
+  "method": "GET",
+  "query_params": {},
+  "path_params": {}
+}
+
+Response:
+{
+  "status_code": 200,
+  "headers": {
+    "content-length": "99",
+    "content-type": "application/json"
+  }
+}
+
+Additional Info:
+- Duration: 0.41ms
+- Status: success

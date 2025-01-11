@@ -1,0 +1,40 @@
+Service Log 20250111_112638
+        
+Request:
+- Endpoint: http://0.0.0.0:8000/agent/presentation
+- Method: POST
+- Time: 2025-01-11 11:26:38
+
+Details:
+{
+  "endpoint": "http://0.0.0.0:8000/agent/presentation",
+  "method": "POST",
+  "query_params": {},
+  "path_params": {},
+  "body": {
+    "company_name": "QualityCore Dialflow",
+    "business_type": "B2C",
+    "framework": "STAR",
+    "word_limit": 150,
+    "lang": "ar",
+    "person_name": "ibrahim lahlou",
+    "topic": "Quality Management",
+    "domain_type": "tech",
+    "speaker": "DialFlow Representative"
+  }
+}
+
+Response:
+{
+  "status_code": 500,
+  "headers": {
+    "content-length": "62",
+    "content-type": "application/json",
+    "access-control-allow-origin": "*",
+    "access-control-allow-credentials": "true"
+  }
+}
+
+Additional Info:
+- Duration: 1.9ms
+- Status: error
